@@ -1,318 +1,561 @@
 // ================================
-// CONFIG
+// FORMATOS ACEITOS
 // ================================
-const IMAGE_FORMATS = ["heic","heif","tiff","tif","nef","png","webp","jpg","jpeg"];
-const VIDEO_FORMATS = ["mov","avi","mkv","webm","m4v","mp4"];
+const IMAGE_FORMATS = ["heic", "heif", "tiff", "tif", "nef", "png", "webp", "jpg", "jpeg"];
+const VIDEO_FORMATS = ["mov", "avi", "mkv", "webm", "m4v", "mp4"];
 
 // ================================
-// STATE
+// ESTADO
 // ================================
 let imageFiles = [];
 let videoFiles = [];
+let lastDownloadBlob = null;
+let lastDownloadName = "";
 
 // ================================
-// ELEMENTS
+// ELEMENTOS
 // ================================
 const dropzone = document.getElementById("dropzone");
+
+const inputImages = document.getElementById("inputImages");
+const inputVideos = document.getElementById("inputVideos");
+const inputFolder = document.getElementById("inputFolder");
+
 const imageList = document.getElementById("imageList");
 const videoList = document.getElementById("videoList");
+
+const btnImages = document.getElementById("btnImages");
+const btnVideos = document.getElementById("btnVideos");
+const btnClear = document.getElementById("btnClear");
+
 const progressModal = document.getElementById("progressModal");
+const progressTitle = document.getElementById("progressTitle");
 const progressBar = document.getElementById("progressBar");
 const progressText = document.getElementById("progressText");
 const downloadBtn = document.getElementById("downloadBtn");
+const closeProgressBtn = document.getElementById("closeProgressBtn");
+
+const previewModal = document.getElementById("previewModal");
+const previewImg = document.getElementById("previewImg");
+const closePreviewBtn = document.getElementById("closePreviewBtn");
 
 // ================================
 // HELPERS
 // ================================
-const getExt = (name) => name.split(".").pop().toLowerCase();
-
-const formatBytes = (bytes) => {
-  const sizes = ["B","KB","MB","GB"];
-  if(bytes === 0) return "0 B";
-  const i = Math.floor(Math.log(bytes)/Math.log(1024));
-  return (bytes/Math.pow(1024,i)).toFixed(2)+" "+sizes[i];
-};
-
-// ================================
-// DRAG & DROP (PASTA)
-// ================================
-dropzone.addEventListener("dragover", e => {
-  e.preventDefault();
-  dropzone.classList.add("hover");
-});
-
-dropzone.addEventListener("dragleave", () => {
-  dropzone.classList.remove("hover");
-});
-
-dropzone.addEventListener("drop", async (e) => {
-  e.preventDefault();
-  dropzone.classList.remove("hover");
-
-  const items = e.dataTransfer.items;
-
-  for (let item of items) {
-    const entry = item.webkitGetAsEntry();
-    if (entry) {
-      await traverseFileTree(entry);
-    }
-  }
-
-  renderLists();
-});
-
-async function traverseFileTree(entry, path = "") {
-  if (entry.isFile) {
-    entry.file(file => {
-      processFile(file);
-    });
-  } else if (entry.isDirectory) {
-    const reader = entry.createReader();
-    reader.readEntries(async entries => {
-      for (let ent of entries) {
-        await traverseFileTree(ent, path + entry.name + "/");
-      }
-    });
-  }
+function getExt(name) {
+  const parts = name.split(".");
+  return parts.length > 1 ? parts.pop().toLowerCase() : "";
 }
 
-// ================================
-// PROCESS FILE
-// ================================
-function processFile(file) {
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return "0 B";
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return (bytes / Math.pow(1024, i)).toFixed(2) + " " + sizes[i];
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.innerText = text;
+  return div.innerHTML;
+}
+
+function resetDownloadState() {
+  lastDownloadBlob = null;
+  lastDownloadName = "";
+  downloadBtn.style.display = "none";
+}
+
+function setDownload(blob, filename) {
+  lastDownloadBlob = blob;
+  lastDownloadName = filename;
+  downloadBtn.style.display = "inline-flex";
+}
+
+function downloadBlob(blob, filename) {
+  const a = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+function showProgress(title = "Convertendo...") {
+  progressTitle.textContent = title;
+  progressText.textContent = "Iniciando...";
+  progressBar.style.width = "0%";
+  progressModal.style.display = "flex";
+  resetDownloadState();
+}
+
+function updateProgress(current, total, fileName = "") {
+  const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+  progressBar.style.width = `${percent}%`;
+  progressText.textContent = `${current} de ${total} (${percent}%)${fileName ? " • " + fileName : ""}`;
+}
+
+function closeProgress() {
+  progressModal.style.display = "none";
+}
+
+function openPreview(src) {
+  previewImg.src = src;
+  previewModal.style.display = "flex";
+}
+
+function closePreview() {
+  previewModal.style.display = "none";
+  previewImg.src = "";
+}
+
+function addFileToState(file) {
   const ext = getExt(file.name);
 
   if (IMAGE_FORMATS.includes(ext)) {
     imageFiles.push(file);
-  } else if (VIDEO_FORMATS.includes(ext)) {
+    return;
+  }
+
+  if (VIDEO_FORMATS.includes(ext)) {
     videoFiles.push(file);
   }
 }
 
-// ================================
-// RENDER LISTS
-// ================================
+function dedupeFiles(files) {
+  const map = new Map();
+  for (const file of files) {
+    const key = `${file.name}_${file.size}_${file.lastModified}`;
+    if (!map.has(key)) map.set(key, file);
+  }
+  return [...map.values()];
+}
+
+function normalizeState() {
+  imageFiles = dedupeFiles(imageFiles);
+  videoFiles = dedupeFiles(videoFiles);
+}
+
 function renderLists() {
+  normalizeState();
+
   imageList.innerHTML = "";
   videoList.innerHTML = "";
 
-  imageFiles.forEach(file => {
-    const div = document.createElement("div");
-    div.className = "item";
+  imageFiles.forEach((file) => {
+    const item = document.createElement("div");
+    item.className = "item";
 
-    const url = URL.createObjectURL(file);
-    div.innerHTML = `
-      <img src="${url}" class="thumb"/>
-      <div>
-        <strong>${file.name}</strong><br>
-        ${formatBytes(file.size)}
-      </div>
-    `;
-
-    div.onclick = () => openPreview(url);
-
-    imageList.appendChild(div);
-  });
-
-  videoFiles.forEach(file => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <strong>${file.name}</strong><br>
-      ${formatBytes(file.size)}
-    `;
-    videoList.appendChild(div);
-  });
-}
-
-// ================================
-// PREVIEW MODAL
-// ================================
-function openPreview(src) {
-  const modal = document.getElementById("previewModal");
-  const img = document.getElementById("previewImg");
-
-  img.src = src;
-  modal.style.display = "flex";
-}
-
-function closePreview() {
-  document.getElementById("previewModal").style.display = "none";
-}
-
-// ================================
-// PROGRESS UI
-// ================================
-function showProgress() {
-  progressModal.style.display = "flex";
-  progressBar.style.width = "0%";
-  progressText.innerText = "Iniciando...";
-  downloadBtn.style.display = "none";
-}
-
-function updateProgress(current, total) {
-  const percent = Math.floor((current / total) * 100);
-  progressBar.style.width = percent + "%";
-  progressText.innerText = `${current} / ${total} (${percent}%)`;
-}
-
-// ================================
-// CONVERT IMAGES
-// ================================
-async function convertImages() {
-  if (!imageFiles.length) return alert("Nenhuma imagem!");
-
-  showProgress();
-
-  const results = [];
-  const zip = new JSZip();
-
-  for (let i = 0; i < imageFiles.length; i++) {
-    const file = imageFiles[i];
     const ext = getExt(file.name);
-    let blob;
 
-    try {
-      if (["heic","heif"].includes(ext)) {
-        blob = await heic2any({ blob: file, toType: "image/jpeg", quality: 1 });
-      }
-
-      else if (["tif","tiff"].includes(ext)) {
-        const buf = await file.arrayBuffer();
-        const ifds = UTIF.decode(buf);
-        UTIF.decodeImages(buf, ifds);
-        const rgba = UTIF.toRGBA8(ifds[0]);
-
-        const canvas = document.createElement("canvas");
-        canvas.width = ifds[0].width;
-        canvas.height = ifds[0].height;
-
-        const ctx = canvas.getContext("2d");
-        const imgData = ctx.createImageData(canvas.width, canvas.height);
-        imgData.data.set(rgba);
-        ctx.putImageData(imgData, 0, 0);
-
-        blob = await new Promise(res => canvas.toBlob(res, "image/jpeg", 1));
-      }
-
-      else if (ext === "nef") {
-        console.warn("NEF não suportado totalmente");
-        continue;
-      }
-
-      else {
-        const bitmap = await createImageBitmap(file);
-        const canvas = document.createElement("canvas");
-        canvas.width = bitmap.width;
-        canvas.height = bitmap.height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(bitmap, 0, 0);
-
-        blob = await new Promise(res => canvas.toBlob(res, "image/jpeg", 1));
-      }
-
-      const name = file.name.replace(/\.\w+$/, ".jpg");
-
-      if (imageFiles.length === 1) {
-        download(blob, name);
-      } else {
-        zip.file(name, blob);
-      }
-
-    } catch (err) {
-      console.error(err);
+    if (["png", "webp", "jpg", "jpeg"].includes(ext)) {
+      const url = URL.createObjectURL(file);
+      item.innerHTML = `
+        <img src="${url}" class="thumb" alt="${escapeHtml(file.name)}">
+        <div class="item-info">
+          <strong>${escapeHtml(file.name)}</strong>
+          <span>${formatBytes(file.size)}</span>
+        </div>
+      `;
+      item.addEventListener("click", () => openPreview(url));
+    } else {
+      item.innerHTML = `
+        <div class="thumb thumb-placeholder">${ext.toUpperCase()}</div>
+        <div class="item-info">
+          <strong>${escapeHtml(file.name)}</strong>
+          <span>${formatBytes(file.size)}</span>
+        </div>
+      `;
     }
 
-    updateProgress(i + 1, imageFiles.length);
+    imageList.appendChild(item);
+  });
+
+  videoFiles.forEach((file) => {
+    const item = document.createElement("div");
+    item.className = "item";
+    item.innerHTML = `
+      <div class="thumb thumb-placeholder">VIDEO</div>
+      <div class="item-info">
+        <strong>${escapeHtml(file.name)}</strong>
+        <span>${formatBytes(file.size)}</span>
+      </div>
+    `;
+    videoList.appendChild(item);
+  });
+}
+
+// ================================
+// LEITURA DE PASTA POR INPUT
+// ================================
+function handleInputFiles(fileList) {
+  const files = Array.from(fileList || []);
+  for (const file of files) {
+    addFileToState(file);
+  }
+  renderLists();
+}
+
+// ================================
+// LEITURA RECURSIVA DE PASTA POR DRAG & DROP
+// ================================
+function readEntry(entry) {
+  return new Promise((resolve) => {
+    if (entry.isFile) {
+      entry.file((file) => resolve([file]), () => resolve([]));
+      return;
+    }
+
+    if (entry.isDirectory) {
+      const dirReader = entry.createReader();
+      const allEntries = [];
+
+      const readBatch = () => {
+        dirReader.readEntries(async (entries) => {
+          if (!entries.length) {
+            const nestedResults = await Promise.all(allEntries.map(readEntry));
+            resolve(nestedResults.flat());
+            return;
+          }
+
+          allEntries.push(...entries);
+          readBatch();
+        }, () => resolve([]));
+      };
+
+      readBatch();
+      return;
+    }
+
+    resolve([]);
+  });
+}
+
+async function getFilesFromDataTransferItems(items) {
+  const files = [];
+
+  for (const item of items) {
+    if (item.kind !== "file") continue;
+
+    const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+
+    if (entry) {
+      const entryFiles = await readEntry(entry);
+      files.push(...entryFiles);
+    } else {
+      const file = item.getAsFile ? item.getAsFile() : null;
+      if (file) files.push(file);
+    }
   }
 
-  if (imageFiles.length > 1) {
-    const content = await zip.generateAsync({ type: "blob" });
-    downloadBtn.onclick = () => download(content, "imagens.zip");
-    downloadBtn.style.display = "block";
+  return files;
+}
+
+// ================================
+// DRAG & DROP
+// ================================
+if (dropzone) {
+  dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("hover");
+  });
+
+  dropzone.addEventListener("dragenter", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("hover");
+  });
+
+  dropzone.addEventListener("dragleave", () => {
+    dropzone.classList.remove("hover");
+  });
+
+  dropzone.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("hover");
+
+    const items = Array.from(e.dataTransfer?.items || []);
+    const fallbackFiles = Array.from(e.dataTransfer?.files || []);
+
+    if (items.length) {
+      const files = await getFilesFromDataTransferItems(items);
+      for (const file of files) addFileToState(file);
+    } else {
+      for (const file of fallbackFiles) addFileToState(file);
+    }
+
+    renderLists();
+  });
+}
+
+// ================================
+// INPUTS
+// ================================
+if (inputImages) {
+  inputImages.addEventListener("change", (e) => {
+    handleInputFiles(e.target.files);
+    e.target.value = "";
+  });
+}
+
+if (inputVideos) {
+  inputVideos.addEventListener("change", (e) => {
+    handleInputFiles(e.target.files);
+    e.target.value = "";
+  });
+}
+
+if (inputFolder) {
+  inputFolder.addEventListener("change", (e) => {
+    handleInputFiles(e.target.files);
+    e.target.value = "";
+  });
+}
+
+// ================================
+// PREVIEW
+// ================================
+if (closePreviewBtn) {
+  closePreviewBtn.addEventListener("click", closePreview);
+}
+
+if (previewModal) {
+  previewModal.addEventListener("click", (e) => {
+    if (e.target === previewModal) closePreview();
+  });
+}
+
+// ================================
+// PROGRESS
+// ================================
+if (closeProgressBtn) {
+  closeProgressBtn.addEventListener("click", closeProgress);
+}
+
+downloadBtn.addEventListener("click", () => {
+  if (lastDownloadBlob && lastDownloadName) {
+    downloadBlob(lastDownloadBlob, lastDownloadName);
+  }
+});
+
+// ================================
+// CONVERSÃO DE IMAGENS
+// Requer: heic2any, UTIF, JSZip
+// ================================
+async function convertImageToJpg(file) {
+  const ext = getExt(file.name);
+
+  if (["heic", "heif"].includes(ext)) {
+    const result = await heic2any({
+      blob: file,
+      toType: "image/jpeg",
+      quality: 1
+    });
+
+    return Array.isArray(result) ? result[0] : result;
+  }
+
+  if (["tif", "tiff"].includes(ext)) {
+    const buffer = await file.arrayBuffer();
+    const ifds = UTIF.decode(buffer);
+    UTIF.decodeImages(buffer, ifds);
+    const first = ifds[0];
+    const rgba = UTIF.toRGBA8(first);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = first.width;
+    canvas.height = first.height;
+
+    const ctx = canvas.getContext("2d");
+    const imageData = new ImageData(new Uint8ClampedArray(rgba), first.width, first.height);
+    ctx.putImageData(imageData, 0, 0);
+
+    return await new Promise((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", 1);
+    });
+  }
+
+  if (ext === "nef") {
+    throw new Error("Formato NEF não está suportado neste navegador sem um decoder RAW específico.");
+  }
+
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0);
+
+  return await new Promise((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", 1);
+  });
+}
+
+async function convertImages() {
+  if (!imageFiles.length) {
+    alert("Nenhuma imagem foi adicionada.");
+    return;
+  }
+
+  showProgress("Convertendo imagens");
+  btnImages.disabled = true;
+  btnVideos.disabled = true;
+
+  try {
+    const results = [];
+    const zip = new JSZip();
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i];
+      updateProgress(i + 1, imageFiles.length, file.name);
+
+      try {
+        const jpgBlob = await convertImageToJpg(file);
+        const newName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+
+        results.push({ name: newName, blob: jpgBlob });
+      } catch (error) {
+        console.error(`Erro ao converter ${file.name}:`, error);
+      }
+    }
+
+    if (!results.length) {
+      progressText.textContent = "Nenhuma imagem foi convertida.";
+      return;
+    }
+
+    if (results.length === 1) {
+      setDownload(results[0].blob, results[0].name);
+      progressText.textContent = "Conversão concluída. Clique em Baixar.";
+      return;
+    }
+
+    for (const file of results) {
+      zip.file(file.name, file.blob);
+    }
+
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    setDownload(zipBlob, "imagens_convertidas.zip");
+    progressText.textContent = "Conversão concluída. Clique em Baixar.";
+  } finally {
+    btnImages.disabled = false;
+    btnVideos.disabled = false;
   }
 }
 
 // ================================
-// CONVERT VIDEOS
+// CONVERSÃO DE VÍDEOS
+// Requer: FFmpegWASM / FFmpegUtil / JSZip
 // ================================
-let ffmpeg, fetchFile;
+let ffmpegInstance = null;
+let ffmpegFetchFile = null;
 
 async function initFFmpeg() {
-  if (ffmpeg) return;
+  if (ffmpegInstance) return;
 
   const { FFmpeg } = FFmpegWASM;
-  const util = FFmpegUtil;
+  ffmpegFetchFile = FFmpegUtil.fetchFile;
+  ffmpegInstance = new FFmpeg();
 
-  ffmpeg = new FFmpeg();
-  fetchFile = util.fetchFile;
-
-  await ffmpeg.load({
+  await ffmpegInstance.load({
     coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js",
     wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm"
   });
 }
 
 async function convertVideos() {
-  if (!videoFiles.length) return alert("Nenhum vídeo!");
+  if (!videoFiles.length) {
+    alert("Nenhum vídeo foi adicionado.");
+    return;
+  }
 
-  showProgress();
-  await initFFmpeg();
+  showProgress("Convertendo vídeos");
+  btnImages.disabled = true;
+  btnVideos.disabled = true;
 
-  const zip = new JSZip();
+  try {
+    await initFFmpeg();
 
-  for (let i = 0; i < videoFiles.length; i++) {
-    const file = videoFiles[i];
+    const zip = new JSZip();
+    const results = [];
 
-    const input = file.name;
-    const output = file.name.replace(/\.\w+$/, ".mp4");
+    for (let i = 0; i < videoFiles.length; i++) {
+      const file = videoFiles[i];
+      updateProgress(i + 1, videoFiles.length, file.name);
 
-    await ffmpeg.writeFile(input, await fetchFile(file));
+      const safeInput = `input_${i}_${file.name.replace(/[^\w.-]/g, "_")}`;
+      const output = `video_${i}.mp4`;
 
-    await ffmpeg.exec([
-      "-i", input,
-      "-c:v", "libx264",
-      "-crf", "0",
-      "-preset", "veryslow",
-      output
-    ]);
+      try {
+        await ffmpegInstance.writeFile(safeInput, await ffmpegFetchFile(file));
 
-    const data = await ffmpeg.readFile(output);
-    const blob = new Blob([data.buffer], { type: "video/mp4" });
+        await ffmpegInstance.exec([
+          "-i", safeInput,
+          "-c:v", "libx264",
+          "-preset", "veryslow",
+          "-crf", "0",
+          "-c:a", "aac",
+          "-b:a", "320k",
+          output
+        ]);
 
-    if (videoFiles.length === 1) {
-      download(blob, output);
-    } else {
-      zip.file(output, blob);
+        const data = await ffmpegInstance.readFile(output);
+        const blob = new Blob([data.buffer], { type: "video/mp4" });
+        const outName = file.name.replace(/\.[^.]+$/, "") + ".mp4";
+
+        results.push({ name: outName, blob });
+
+        try { await ffmpegInstance.deleteFile(safeInput); } catch {}
+        try { await ffmpegInstance.deleteFile(output); } catch {}
+      } catch (error) {
+        console.error(`Erro ao converter vídeo ${file.name}:`, error);
+      }
     }
 
-    updateProgress(i + 1, videoFiles.length);
-  }
+    if (!results.length) {
+      progressText.textContent = "Nenhum vídeo foi convertido.";
+      return;
+    }
 
-  if (videoFiles.length > 1) {
-    const content = await zip.generateAsync({ type: "blob" });
-    downloadBtn.onclick = () => download(content, "videos.zip");
-    downloadBtn.style.display = "block";
+    if (results.length === 1) {
+      setDownload(results[0].blob, results[0].name);
+      progressText.textContent = "Conversão concluída. Clique em Baixar.";
+      return;
+    }
+
+    for (const file of results) {
+      zip.file(file.name, file.blob);
+    }
+
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    setDownload(zipBlob, "videos_convertidos.zip");
+    progressText.textContent = "Conversão concluída. Clique em Baixar.";
+  } finally {
+    btnImages.disabled = false;
+    btnVideos.disabled = false;
   }
 }
 
 // ================================
-// DOWNLOAD
+// BOTÕES
 // ================================
-function download(blob, filename) {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
+if (btnImages) {
+  btnImages.addEventListener("click", convertImages);
 }
 
-// ================================
-// BUTTONS
-// ================================
-document.getElementById("btnImages").onclick = convertImages;
-document.getElementById("btnVideos").onclick = convertVideos;
-document.getElementById("btnClear").onclick = () => {
-  imageFiles = [];
-  videoFiles = [];
-  renderLists();
-};
+if (btnVideos) {
+  btnVideos.addEventListener("click", convertVideos);
+}
+
+if (btnClear) {
+  btnClear.addEventListener("click", () => {
+    imageFiles = [];
+    videoFiles = [];
+    renderLists();
+    resetDownloadState();
+  });
+}
