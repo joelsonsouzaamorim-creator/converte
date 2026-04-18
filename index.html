@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conversor PRO - Imagens e Vídeos</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge">C</div>
+        <div>
+          <h1>Conversor PRO</h1>
+          <p>Imagens para JPG e vídeos para MP4</p>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <button class="ghost-btn" id="themeInfoBtn" type="button">Processamento local</button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="hero">
+        <div class="hero-left">
+          <span class="hero-tag">Sistema Profissional</span>
+          <h2>Converta pastas inteiras e acompanhe o progresso em tempo real</h2>
+          <p>
+            Arraste arquivos ou pastas. O sistema reconhece imagens e vídeos,
+            mostra pré-visualização, converte em lote e gera download direto
+            ou ZIP automaticamente.
+          </p>
+
+          <div class="hero-bullets">
+            <span>Pastas</span>
+            <span>Lote</span>
+            <span>Miniaturas</span>
+            <span>ZIP</span>
+          </div>
+        </div>
+
+        <div class="hero-right">
+          <div class="stat-card">
+            <strong>Imagens</strong>
+            <span>HEIC, HEIF, TIFF, PNG, WEBP, NEF*</span>
+          </div>
+          <div class="stat-card">
+            <strong>Vídeos</strong>
+            <span>MOV, AVI, MKV, WEBM, M4V, MP4</span>
+          </div>
+          <div class="stat-card">
+            <strong>Saída</strong>
+            <span>JPG e MP4</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="tabs-section">
+        <div class="tabs-header">
+          <button class="tab-btn active" data-tab="imagesTab" type="button">Imagens</button>
+          <button class="tab-btn" data-tab="videosTab" type="button">Vídeos</button>
+        </div>
+
+        <!-- ABA IMAGENS -->
+        <div class="tab-panel active" id="imagesTab">
+          <div class="panel-grid">
+            <section class="card">
+              <div class="card-head">
+                <h3>Adicionar imagens</h3>
+                <p>Arraste arquivos ou uma pasta inteira com imagens</p>
+              </div>
+
+              <div class="dropzone" id="imageDropzone">
+                <input
+                  id="imageInput"
+                  type="file"
+                  accept=".heic,.heif,.tiff,.tif,.nef,.png,.webp,.jpg,.jpeg,image/*"
+                  multiple
+                />
+                <input
+                  id="imageFolderInput"
+                  type="file"
+                  webkitdirectory
+                  directory
+                  multiple
+                />
+                <div class="dropzone-icon">🖼️</div>
+                <h4>Solte imagens ou pastas aqui</h4>
+                <p>
+                  O sistema reconhecerá os formatos automaticamente
+                </p>
+
+                <div class="dropzone-actions">
+                  <button class="primary-btn" id="selectImagesBtn" type="button">Selecionar imagens</button>
+                  <button class="secondary-btn" id="selectImageFolderBtn" type="button">Selecionar pasta</button>
+                </div>
+              </div>
+
+              <div class="toolbar">
+                <button class="success-btn" id="convertImagesBtn" type="button">Converter imagens</button>
+                <button class="danger-btn" id="clearImagesBtn" type="button">Limpar</button>
+              </div>
+
+              <div class="small-alert">
+                <strong>Observação:</strong> HEIC/HEIF, TIFF, PNG e WEBP podem ser convertidos no navegador. Arquivos NEF são RAW Nikon e podem exigir backend ou biblioteca RAW específica para conversão total.
+              </div>
+
+              <div class="status-box" id="imagesStatus">
+                Nenhuma imagem adicionada.
+              </div>
+
+              <div class="summary-row">
+                <div class="summary-chip">Arquivos válidos: <span id="imageValidCount">0</span></div>
+                <div class="summary-chip">Ignorados: <span id="imageIgnoredCount">0</span></div>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="card-head">
+                <h3>Pré-visualização</h3>
+                <p>Miniaturas das imagens reconhecidas</p>
+              </div>
+
+              <div class="thumb-grid" id="imageThumbGrid"></div>
+
+              <div class="ignored-list-wrap" id="imageIgnoredWrap">
+                <h4>Arquivos ignorados</h4>
+                <ul id="imageIgnoredList"></ul>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ABA VÍDEOS -->
+        <div class="tab-panel" id="videosTab">
+          <div class="panel-grid">
+            <section class="card">
+              <div class="card-head">
+                <h3>Adicionar vídeos</h3>
+                <p>Arraste arquivos ou uma pasta inteira com vídeos</p>
+              </div>
+
+              <div class="dropzone" id="videoDropzone">
+                <input
+                  id="videoInput"
+                  type="file"
+                  accept=".mov,.avi,.mkv,.webm,.m4v,.mp4,video/*"
+                  multiple
+                />
+                <input
+                  id="videoFolderInput"
+                  type="file"
+                  webkitdirectory
+                  directory
+                  multiple
+                />
+                <div class="dropzone-icon">🎬</div>
+                <h4>Solte vídeos ou pastas aqui</h4>
+                <p>
+                  O sistema reconhecerá os formatos automaticamente
+                </p>
+
+                <div class="dropzone-actions">
+                  <button class="primary-btn" id="selectVideosBtn" type="button">Selecionar vídeos</button>
+                  <button class="secondary-btn" id="selectVideoFolderBtn" type="button">Selecionar pasta</button>
+                </div>
+              </div>
+
+              <div class="toolbar">
+                <button class="success-btn" id="convertVideosBtn" type="button">Converter vídeos</button>
+                <button class="danger-btn" id="clearVideosBtn" type="button">Limpar</button>
+              </div>
+
+              <div class="small-alert">
+                <strong>Observação:</strong> a conversão de vídeo acontece no navegador e pode consumir muita memória em arquivos grandes.
+              </div>
+
+              <div class="status-box" id="videosStatus">
+                Nenhum vídeo adicionado.
+              </div>
+
+              <div class="summary-row">
+                <div class="summary-chip">Arquivos válidos: <span id="videoValidCount">0</span></div>
+                <div class="summary-chip">Ignorados: <span id="videoIgnoredCount">0</span></div>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="card-head">
+                <h3>Lista de vídeos</h3>
+                <p>Arquivos reconhecidos e prontos para converter</p>
+              </div>
+
+              <div class="video-list" id="videoList"></div>
+
+              <div class="ignored-list-wrap" id="videoIgnoredWrap">
+                <h4>Arquivos ignorados</h4>
+                <ul id="videoIgnoredList"></ul>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL DE IMAGEM -->
+  <div class="modal hidden" id="previewModal">
+    <div class="modal-backdrop" id="previewBackdrop"></div>
+    <div class="modal-content modal-image">
+      <button class="modal-close" id="closePreviewModal" type="button">×</button>
+      <img id="previewModalImage" src="" alt="Pré-visualização ampliada" />
+      <div class="modal-caption" id="previewModalCaption"></div>
+    </div>
+  </div>
+
+  <!-- MODAL DE PROGRESSO -->
+  <div class="modal hidden" id="progressModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-progress">
+      <div class="progress-icon" id="progressIcon">⏳</div>
+      <h3 id="progressTitle">Convertendo...</h3>
+      <p id="progressSubtitle">Preparando arquivos...</p>
+
+      <div class="big-progress-wrap">
+        <div class="big-progress-bar" id="bigProgressBar"></div>
+      </div>
+
+      <div class="progress-percentage" id="progressPercentage">0%</div>
+      <div class="progress-file" id="progressFile">Aguardando...</div>
+      <div class="progress-counter" id="progressCounter">0 de 0</div>
+
+      <div class="progress-actions">
+        <button class="success-btn hidden" id="downloadResultBtn" type="button">Baixar resultado</button>
+        <button class="secondary-btn hidden" id="closeProgressBtn" type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JSZip -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <!-- HEIC -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/heic2any/0.0.4/heic2any.min.js"></script>
+
+  <!-- TIFF -->
+  <script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.min.js"></script>
+
+  <!-- FFmpeg -->
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+  <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+
+  <script src="script.js"></script>
+</body>
+</html>
