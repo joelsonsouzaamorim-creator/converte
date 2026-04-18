@@ -1,20 +1,11 @@
-// ================================
-// FORMATOS ACEITOS
-// ================================
 const IMAGE_FORMATS = ["heic", "heif", "tiff", "tif", "nef", "png", "webp", "jpg", "jpeg"];
 const VIDEO_FORMATS = ["mov", "avi", "mkv", "webm", "m4v", "mp4"];
 
-// ================================
-// ESTADO
-// ================================
 let imageFiles = [];
 let videoFiles = [];
 let lastDownloadBlob = null;
 let lastDownloadName = "";
 
-// ================================
-// ELEMENTOS
-// ================================
 const dropzone = document.getElementById("dropzone");
 
 const inputImages = document.getElementById("inputImages");
@@ -39,9 +30,6 @@ const previewModal = document.getElementById("previewModal");
 const previewImg = document.getElementById("previewImg");
 const closePreviewBtn = document.getElementById("closePreviewBtn");
 
-// ================================
-// HELPERS
-// ================================
 function getExt(name) {
   const parts = name.split(".");
   return parts.length > 1 ? parts.pop().toLowerCase() : "";
@@ -56,14 +44,34 @@ function formatBytes(bytes) {
 
 function escapeHtml(text) {
   const div = document.createElement("div");
-  div.innerText = text;
+  div.textContent = text;
   return div.innerHTML;
 }
 
-function resetDownloadState() {
+function showProgress(title = "Convertendo...") {
+  progressTitle.textContent = title;
+  progressText.textContent = "Iniciando...";
+  progressBar.style.width = "0%";
+  progressModal.style.display = "flex";
+  downloadBtn.style.display = "none";
   lastDownloadBlob = null;
   lastDownloadName = "";
-  downloadBtn.style.display = "none";
+}
+
+function updateProgress(current, total, fileName = "") {
+  const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+  progressBar.style.width = `${percent}%`;
+  progressText.textContent = `${current} de ${total} (${percent}%)${fileName ? " • " + fileName : ""}`;
+}
+
+function openPreview(src) {
+  previewImg.src = src;
+  previewModal.style.display = "flex";
+}
+
+function closePreview() {
+  previewModal.style.display = "none";
+  previewImg.src = "";
 }
 
 function setDownload(blob, filename) {
@@ -81,34 +89,6 @@ function downloadBlob(blob, filename) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
-}
-
-function showProgress(title = "Convertendo...") {
-  progressTitle.textContent = title;
-  progressText.textContent = "Iniciando...";
-  progressBar.style.width = "0%";
-  progressModal.style.display = "flex";
-  resetDownloadState();
-}
-
-function updateProgress(current, total, fileName = "") {
-  const percent = total > 0 ? Math.round((current / total) * 100) : 0;
-  progressBar.style.width = `${percent}%`;
-  progressText.textContent = `${current} de ${total} (${percent}%)${fileName ? " • " + fileName : ""}`;
-}
-
-function closeProgress() {
-  progressModal.style.display = "none";
-}
-
-function openPreview(src) {
-  previewImg.src = src;
-  previewModal.style.display = "flex";
-}
-
-function closePreview() {
-  previewModal.style.display = "none";
-  previewImg.src = "";
 }
 
 function addFileToState(file) {
@@ -138,6 +118,15 @@ function normalizeState() {
   videoFiles = dedupeFiles(videoFiles);
 }
 
+function clearAllLists() {
+  imageFiles = [];
+  videoFiles = [];
+  renderLists();
+  downloadBtn.style.display = "none";
+  lastDownloadBlob = null;
+  lastDownloadName = "";
+}
+
 function renderLists() {
   normalizeState();
 
@@ -162,7 +151,7 @@ function renderLists() {
       item.addEventListener("click", () => openPreview(url));
     } else {
       item.innerHTML = `
-        <div class="thumb thumb-placeholder">${ext.toUpperCase()}</div>
+        <div class="thumb-placeholder">${ext.toUpperCase()}</div>
         <div class="item-info">
           <strong>${escapeHtml(file.name)}</strong>
           <span>${formatBytes(file.size)}</span>
@@ -177,7 +166,7 @@ function renderLists() {
     const item = document.createElement("div");
     item.className = "item";
     item.innerHTML = `
-      <div class="thumb thumb-placeholder">VIDEO</div>
+      <div class="thumb-placeholder">VIDEO</div>
       <div class="item-info">
         <strong>${escapeHtml(file.name)}</strong>
         <span>${formatBytes(file.size)}</span>
@@ -187,75 +176,77 @@ function renderLists() {
   });
 }
 
-// ================================
-// LEITURA DE PASTA POR INPUT
-// ================================
 function handleInputFiles(fileList) {
   const files = Array.from(fileList || []);
-  for (const file of files) {
-    addFileToState(file);
-  }
+  if (!files.length) return;
+
+  files.forEach((file) => addFileToState(file));
   renderLists();
 }
 
-// ================================
-// LEITURA RECURSIVA DE PASTA POR DRAG & DROP
-// ================================
-function readEntry(entry) {
-  return new Promise((resolve) => {
-    if (entry.isFile) {
-      entry.file((file) => resolve([file]), () => resolve([]));
-      return;
-    }
-
-    if (entry.isDirectory) {
-      const dirReader = entry.createReader();
-      const allEntries = [];
-
-      const readBatch = () => {
-        dirReader.readEntries(async (entries) => {
-          if (!entries.length) {
-            const nestedResults = await Promise.all(allEntries.map(readEntry));
-            resolve(nestedResults.flat());
-            return;
-          }
-
-          allEntries.push(...entries);
-          readBatch();
-        }, () => resolve([]));
-      };
-
-      readBatch();
-      return;
-    }
-
-    resolve([]);
+function readEntriesPromise(dirReader) {
+  return new Promise((resolve, reject) => {
+    dirReader.readEntries(resolve, reject);
   });
 }
 
-async function getFilesFromDataTransferItems(items) {
-  const files = [];
+async function readAllDirectoryEntries(directoryEntry) {
+  const dirReader = directoryEntry.createReader();
+  let entries = [];
+  let batch = [];
 
-  for (const item of items) {
-    if (item.kind !== "file") continue;
+  do {
+    batch = await readEntriesPromise(dirReader);
+    entries = entries.concat(batch);
+  } while (batch.length > 0);
 
-    const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
-
-    if (entry) {
-      const entryFiles = await readEntry(entry);
-      files.push(...entryFiles);
-    } else {
-      const file = item.getAsFile ? item.getAsFile() : null;
-      if (file) files.push(file);
-    }
-  }
-
-  return files;
+  return entries;
 }
 
-// ================================
-// DRAG & DROP
-// ================================
+async function readEntryRecursive(entry) {
+  if (entry.isFile) {
+    return new Promise((resolve) => {
+      entry.file(
+        (file) => resolve([file]),
+        () => resolve([])
+      );
+    });
+  }
+
+  if (entry.isDirectory) {
+    const entries = await readAllDirectoryEntries(entry);
+    const nested = await Promise.all(entries.map(readEntryRecursive));
+    return nested.flat();
+  }
+
+  return [];
+}
+
+async function handleDroppedItems(items, filesFallback) {
+  let collectedFiles = [];
+
+  if (items && items.length) {
+    for (const item of items) {
+      if (item.kind !== "file") continue;
+
+      const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+
+      if (entry) {
+        const files = await readEntryRecursive(entry);
+        collectedFiles.push(...files);
+      } else {
+        const file = item.getAsFile ? item.getAsFile() : null;
+        if (file) collectedFiles.push(file);
+      }
+    }
+  } else if (filesFallback && filesFallback.length) {
+    collectedFiles = Array.from(filesFallback);
+  }
+
+  collectedFiles.forEach((file) => addFileToState(file));
+  renderLists();
+}
+
 if (dropzone) {
   dropzone.addEventListener("dragover", (e) => {
     e.preventDefault();
@@ -275,23 +266,13 @@ if (dropzone) {
     e.preventDefault();
     dropzone.classList.remove("hover");
 
-    const items = Array.from(e.dataTransfer?.items || []);
-    const fallbackFiles = Array.from(e.dataTransfer?.files || []);
+    const items = e.dataTransfer ? e.dataTransfer.items : null;
+    const files = e.dataTransfer ? e.dataTransfer.files : null;
 
-    if (items.length) {
-      const files = await getFilesFromDataTransferItems(items);
-      for (const file of files) addFileToState(file);
-    } else {
-      for (const file of fallbackFiles) addFileToState(file);
-    }
-
-    renderLists();
+    await handleDroppedItems(items, files);
   });
 }
 
-// ================================
-// INPUTS
-// ================================
 if (inputImages) {
   inputImages.addEventListener("change", (e) => {
     handleInputFiles(e.target.files);
@@ -313,35 +294,38 @@ if (inputFolder) {
   });
 }
 
-// ================================
-// PREVIEW
-// ================================
+if (btnClear) {
+  btnClear.addEventListener("click", clearAllLists);
+}
+
 if (closePreviewBtn) {
   closePreviewBtn.addEventListener("click", closePreview);
 }
 
 if (previewModal) {
   previewModal.addEventListener("click", (e) => {
-    if (e.target === previewModal) closePreview();
+    if (e.target === previewModal) {
+      closePreview();
+    }
+  });
+}
+
+if (closeProgressBtn) {
+  closeProgressBtn.addEventListener("click", () => {
+    progressModal.style.display = "none";
+  });
+}
+
+if (downloadBtn) {
+  downloadBtn.addEventListener("click", () => {
+    if (lastDownloadBlob && lastDownloadName) {
+      downloadBlob(lastDownloadBlob, lastDownloadName);
+    }
   });
 }
 
 // ================================
-// PROGRESS
-// ================================
-if (closeProgressBtn) {
-  closeProgressBtn.addEventListener("click", closeProgress);
-}
-
-downloadBtn.addEventListener("click", () => {
-  if (lastDownloadBlob && lastDownloadName) {
-    downloadBlob(lastDownloadBlob, lastDownloadName);
-  }
-});
-
-// ================================
 // CONVERSÃO DE IMAGENS
-// Requer: heic2any, UTIF, JSZip
 // ================================
 async function convertImageToJpg(file) {
   const ext = getExt(file.name);
@@ -371,13 +355,13 @@ async function convertImageToJpg(file) {
     const imageData = new ImageData(new Uint8ClampedArray(rgba), first.width, first.height);
     ctx.putImageData(imageData, 0, 0);
 
-    return await new Promise((resolve) => {
+    return new Promise((resolve) => {
       canvas.toBlob(resolve, "image/jpeg", 1);
     });
   }
 
   if (ext === "nef") {
-    throw new Error("Formato NEF não está suportado neste navegador sem um decoder RAW específico.");
+    throw new Error("NEF ainda não está suportado nesta versão.");
   }
 
   const bitmap = await createImageBitmap(file);
@@ -390,7 +374,7 @@ async function convertImageToJpg(file) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(bitmap, 0, 0);
 
-  return await new Promise((resolve) => {
+  return new Promise((resolve) => {
     canvas.toBlob(resolve, "image/jpeg", 1);
   });
 }
@@ -416,10 +400,9 @@ async function convertImages() {
       try {
         const jpgBlob = await convertImageToJpg(file);
         const newName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
-
         results.push({ name: newName, blob: jpgBlob });
       } catch (error) {
-        console.error(`Erro ao converter ${file.name}:`, error);
+        console.error("Erro ao converter imagem:", file.name, error);
       }
     }
 
@@ -434,11 +417,9 @@ async function convertImages() {
       return;
     }
 
-    for (const file of results) {
-      zip.file(file.name, file.blob);
-    }
-
+    results.forEach((file) => zip.file(file.name, file.blob));
     const zipBlob = await zip.generateAsync({ type: "blob" });
+
     setDownload(zipBlob, "imagens_convertidas.zip");
     progressText.textContent = "Conversão concluída. Clique em Baixar.";
   } finally {
@@ -449,7 +430,6 @@ async function convertImages() {
 
 // ================================
 // CONVERSÃO DE VÍDEOS
-// Requer: FFmpegWASM / FFmpegUtil / JSZip
 // ================================
 let ffmpegInstance = null;
 let ffmpegFetchFile = null;
@@ -492,7 +472,6 @@ async function convertVideos() {
 
       try {
         await ffmpegInstance.writeFile(safeInput, await ffmpegFetchFile(file));
-
         await ffmpegInstance.exec([
           "-i", safeInput,
           "-c:v", "libx264",
@@ -512,7 +491,7 @@ async function convertVideos() {
         try { await ffmpegInstance.deleteFile(safeInput); } catch {}
         try { await ffmpegInstance.deleteFile(output); } catch {}
       } catch (error) {
-        console.error(`Erro ao converter vídeo ${file.name}:`, error);
+        console.error("Erro ao converter vídeo:", file.name, error);
       }
     }
 
@@ -527,11 +506,9 @@ async function convertVideos() {
       return;
     }
 
-    for (const file of results) {
-      zip.file(file.name, file.blob);
-    }
-
+    results.forEach((file) => zip.file(file.name, file.blob));
     const zipBlob = await zip.generateAsync({ type: "blob" });
+
     setDownload(zipBlob, "videos_convertidos.zip");
     progressText.textContent = "Conversão concluída. Clique em Baixar.";
   } finally {
@@ -540,22 +517,10 @@ async function convertVideos() {
   }
 }
 
-// ================================
-// BOTÕES
-// ================================
 if (btnImages) {
   btnImages.addEventListener("click", convertImages);
 }
 
 if (btnVideos) {
   btnVideos.addEventListener("click", convertVideos);
-}
-
-if (btnClear) {
-  btnClear.addEventListener("click", () => {
-    imageFiles = [];
-    videoFiles = [];
-    renderLists();
-    resetDownloadState();
-  });
 }
