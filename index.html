@@ -3,255 +3,456 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Conversor PRO - Imagens e Vídeos</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Conversor de Imagens e Vídeos</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #0f172a, #111827, #1e293b);
+      min-height: 100vh;
+      color: #fff;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .header h1 {
+      font-size: 2.2rem;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      color: #cbd5e1;
+      font-size: 1rem;
+    }
+
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .btn {
+      border: none;
+      outline: none;
+      cursor: pointer;
+      border-radius: 12px;
+      padding: 14px 20px;
+      font-size: 15px;
+      font-weight: bold;
+      transition: 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      opacity: 0.96;
+    }
+
+    .btn-blue {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    .btn-green {
+      background: #16a34a;
+      color: #fff;
+    }
+
+    .btn-purple {
+      background: #7c3aed;
+      color: #fff;
+    }
+
+    .btn-red {
+      background: #dc2626;
+      color: #fff;
+    }
+
+    .hidden-input {
+      display: none;
+    }
+
+    #dropzone {
+      border: 2px dashed rgba(255,255,255,0.25);
+      border-radius: 20px;
+      padding: 36px 20px;
+      text-align: center;
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(10px);
+      transition: 0.2s ease;
+      margin-bottom: 28px;
+    }
+
+    #dropzone.hover {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.08);
+      transform: scale(1.01);
+    }
+
+    #dropzone h2 {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    #dropzone p {
+      color: #cbd5e1;
+      font-size: 0.96rem;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+    }
+
+    .panel {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 20px;
+      min-height: 420px;
+      box-shadow: 0 10px 35px rgba(0,0,0,0.25);
+    }
+
+    .panel h3 {
+      margin-bottom: 14px;
+      font-size: 1.3rem;
+      color: #fff;
+    }
+
+    .panel-sub {
+      color: #cbd5e1;
+      font-size: 0.92rem;
+      margin-bottom: 16px;
+    }
+
+    .list-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 14px;
+    }
+
+    .item {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 10px;
+      cursor: pointer;
+      transition: 0.2s ease;
+      overflow: hidden;
+    }
+
+    .item:hover {
+      transform: translateY(-2px);
+      background: rgba(255,255,255,0.08);
+    }
+
+    .thumb {
+      width: 100%;
+      height: 110px;
+      object-fit: cover;
+      border-radius: 10px;
+      background: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .thumb-placeholder {
+      width: 100%;
+      height: 110px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #1e293b, #334155);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 14px;
+      color: #e2e8f0;
+      text-align: center;
+      padding: 8px;
+    }
+
+    .item-info {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .item-info strong {
+      font-size: 0.92rem;
+      word-break: break-word;
+      color: #fff;
+    }
+
+    .item-info span {
+      font-size: 0.84rem;
+      color: #cbd5e1;
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    /* Modal de progresso */
+    #progressModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+    }
+
+    .progress-box {
+      width: 100%;
+      max-width: 620px;
+      background: #0f172a;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 22px;
+      padding: 26px;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+      text-align: center;
+    }
+
+    .progress-box h2 {
+      font-size: 1.6rem;
+      margin-bottom: 16px;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 22px;
+      border-radius: 999px;
+      background: #1e293b;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #22c55e, #38bdf8);
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+
+    #progressText {
+      color: #cbd5e1;
+      margin-bottom: 18px;
+      font-size: 0.98rem;
+    }
+
+    .progress-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    #downloadBtn {
+      display: none;
+    }
+
+    /* Modal preview */
+    #previewModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9998;
+      padding: 20px;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    #previewImg {
+      max-width: 95vw;
+      max-height: 80vh;
+      border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+      object-fit: contain;
+      background: #000;
+    }
+
+    .preview-top {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+    }
+
+    /* Responsivo */
+    @media (max-width: 900px) {
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header h1 {
+        font-size: 1.8rem;
+      }
+
+      .top-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-badge">C</div>
-        <div>
-          <h1>Conversor PRO</h1>
-          <p>Imagens para JPG e vídeos para MP4</p>
+  <div class="container">
+
+    <div class="header">
+      <h1>Conversor Profissional</h1>
+      <p>
+        Converta imagens para JPG e vídeos para MP4 arrastando arquivos ou pastas inteiras.
+      </p>
+    </div>
+
+    <div class="top-actions">
+      <button class="btn btn-blue" onclick="document.getElementById('inputImages').click()">
+        Selecionar Imagens
+      </button>
+
+      <button class="btn btn-purple" onclick="document.getElementById('inputVideos').click()">
+        Selecionar Vídeos
+      </button>
+
+      <button class="btn btn-green" onclick="document.getElementById('inputFolder').click()">
+        Selecionar Pasta
+      </button>
+
+      <button class="btn btn-red" id="btnClear">
+        Limpar Tudo
+      </button>
+    </div>
+
+    <!-- INPUTS -->
+    <input
+      type="file"
+      id="inputImages"
+      class="hidden-input"
+      multiple
+      accept=".heic,.heif,.tif,.tiff,.nef,.png,.webp,.jpg,.jpeg"
+    >
+
+    <input
+      type="file"
+      id="inputVideos"
+      class="hidden-input"
+      multiple
+      accept=".mov,.avi,.mkv,.webm,.m4v,.mp4"
+    >
+
+    <input
+      type="file"
+      id="inputFolder"
+      class="hidden-input"
+      webkitdirectory
+      directory
+      multiple
+    >
+
+    <!-- DRAG AND DROP -->
+    <div id="dropzone">
+      <h2>Arraste arquivos ou pastas aqui</h2>
+      <p>
+        O sistema vai reconhecer imagens e vídeos automaticamente.
+      </p>
+    </div>
+
+    <div class="content-grid">
+      <!-- IMAGENS -->
+      <div class="panel">
+        <h3>Imagens detectadas</h3>
+        <p class="panel-sub">
+          Formatos aceitos: HEIC, HEIF, TIFF, TIF, NEF, PNG, WEBP, JPG, JPEG
+        </p>
+
+        <div id="imageList" class="list-grid"></div>
+
+        <div class="panel-actions">
+          <button class="btn btn-blue" id="btnImages">Converter Imagens</button>
         </div>
       </div>
 
-      <div class="topbar-actions">
-        <button class="ghost-btn" id="themeInfoBtn" type="button">Processamento local</button>
+      <!-- VÍDEOS -->
+      <div class="panel">
+        <h3>Vídeos detectados</h3>
+        <p class="panel-sub">
+          Formatos aceitos: MOV, AVI, MKV, WEBM, M4V, MP4
+        </p>
+
+        <div id="videoList" class="list-grid"></div>
+
+        <div class="panel-actions">
+          <button class="btn btn-purple" id="btnVideos">Converter Vídeos</button>
+        </div>
       </div>
-    </header>
-
-    <main class="main-content">
-      <section class="hero">
-        <div class="hero-left">
-          <span class="hero-tag">Sistema Profissional</span>
-          <h2>Converta pastas inteiras e acompanhe o progresso em tempo real</h2>
-          <p>
-            Arraste arquivos ou pastas. O sistema reconhece imagens e vídeos,
-            mostra pré-visualização, converte em lote e gera download direto
-            ou ZIP automaticamente.
-          </p>
-
-          <div class="hero-bullets">
-            <span>Pastas</span>
-            <span>Lote</span>
-            <span>Miniaturas</span>
-            <span>ZIP</span>
-          </div>
-        </div>
-
-        <div class="hero-right">
-          <div class="stat-card">
-            <strong>Imagens</strong>
-            <span>HEIC, HEIF, TIFF, PNG, WEBP, NEF*</span>
-          </div>
-          <div class="stat-card">
-            <strong>Vídeos</strong>
-            <span>MOV, AVI, MKV, WEBM, M4V, MP4</span>
-          </div>
-          <div class="stat-card">
-            <strong>Saída</strong>
-            <span>JPG e MP4</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="tabs-section">
-        <div class="tabs-header">
-          <button class="tab-btn active" data-tab="imagesTab" type="button">Imagens</button>
-          <button class="tab-btn" data-tab="videosTab" type="button">Vídeos</button>
-        </div>
-
-        <!-- ABA IMAGENS -->
-        <div class="tab-panel active" id="imagesTab">
-          <div class="panel-grid">
-            <section class="card">
-              <div class="card-head">
-                <h3>Adicionar imagens</h3>
-                <p>Arraste arquivos ou uma pasta inteira com imagens</p>
-              </div>
-
-              <div class="dropzone" id="imageDropzone">
-                <input
-                  id="imageInput"
-                  type="file"
-                  accept=".heic,.heif,.tiff,.tif,.nef,.png,.webp,.jpg,.jpeg,image/*"
-                  multiple
-                />
-                <input
-                  id="imageFolderInput"
-                  type="file"
-                  webkitdirectory
-                  directory
-                  multiple
-                />
-                <div class="dropzone-icon">🖼️</div>
-                <h4>Solte imagens ou pastas aqui</h4>
-                <p>
-                  O sistema reconhecerá os formatos automaticamente
-                </p>
-
-                <div class="dropzone-actions">
-                  <button class="primary-btn" id="selectImagesBtn" type="button">Selecionar imagens</button>
-                  <button class="secondary-btn" id="selectImageFolderBtn" type="button">Selecionar pasta</button>
-                </div>
-              </div>
-
-              <div class="toolbar">
-                <button class="success-btn" id="convertImagesBtn" type="button">Converter imagens</button>
-                <button class="danger-btn" id="clearImagesBtn" type="button">Limpar</button>
-              </div>
-
-              <div class="small-alert">
-                <strong>Observação:</strong> HEIC/HEIF, TIFF, PNG e WEBP podem ser convertidos no navegador. Arquivos NEF são RAW Nikon e podem exigir backend ou biblioteca RAW específica para conversão total.
-              </div>
-
-              <div class="status-box" id="imagesStatus">
-                Nenhuma imagem adicionada.
-              </div>
-
-              <div class="summary-row">
-                <div class="summary-chip">Arquivos válidos: <span id="imageValidCount">0</span></div>
-                <div class="summary-chip">Ignorados: <span id="imageIgnoredCount">0</span></div>
-              </div>
-            </section>
-
-            <section class="card">
-              <div class="card-head">
-                <h3>Pré-visualização</h3>
-                <p>Miniaturas das imagens reconhecidas</p>
-              </div>
-
-              <div class="thumb-grid" id="imageThumbGrid"></div>
-
-              <div class="ignored-list-wrap" id="imageIgnoredWrap">
-                <h4>Arquivos ignorados</h4>
-                <ul id="imageIgnoredList"></ul>
-              </div>
-            </section>
-          </div>
-        </div>
-
-        <!-- ABA VÍDEOS -->
-        <div class="tab-panel" id="videosTab">
-          <div class="panel-grid">
-            <section class="card">
-              <div class="card-head">
-                <h3>Adicionar vídeos</h3>
-                <p>Arraste arquivos ou uma pasta inteira com vídeos</p>
-              </div>
-
-              <div class="dropzone" id="videoDropzone">
-                <input
-                  id="videoInput"
-                  type="file"
-                  accept=".mov,.avi,.mkv,.webm,.m4v,.mp4,video/*"
-                  multiple
-                />
-                <input
-                  id="videoFolderInput"
-                  type="file"
-                  webkitdirectory
-                  directory
-                  multiple
-                />
-                <div class="dropzone-icon">🎬</div>
-                <h4>Solte vídeos ou pastas aqui</h4>
-                <p>
-                  O sistema reconhecerá os formatos automaticamente
-                </p>
-
-                <div class="dropzone-actions">
-                  <button class="primary-btn" id="selectVideosBtn" type="button">Selecionar vídeos</button>
-                  <button class="secondary-btn" id="selectVideoFolderBtn" type="button">Selecionar pasta</button>
-                </div>
-              </div>
-
-              <div class="toolbar">
-                <button class="success-btn" id="convertVideosBtn" type="button">Converter vídeos</button>
-                <button class="danger-btn" id="clearVideosBtn" type="button">Limpar</button>
-              </div>
-
-              <div class="small-alert">
-                <strong>Observação:</strong> a conversão de vídeo acontece no navegador e pode consumir muita memória em arquivos grandes.
-              </div>
-
-              <div class="status-box" id="videosStatus">
-                Nenhum vídeo adicionado.
-              </div>
-
-              <div class="summary-row">
-                <div class="summary-chip">Arquivos válidos: <span id="videoValidCount">0</span></div>
-                <div class="summary-chip">Ignorados: <span id="videoIgnoredCount">0</span></div>
-              </div>
-            </section>
-
-            <section class="card">
-              <div class="card-head">
-                <h3>Lista de vídeos</h3>
-                <p>Arquivos reconhecidos e prontos para converter</p>
-              </div>
-
-              <div class="video-list" id="videoList"></div>
-
-              <div class="ignored-list-wrap" id="videoIgnoredWrap">
-                <h4>Arquivos ignorados</h4>
-                <ul id="videoIgnoredList"></ul>
-              </div>
-            </section>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <!-- MODAL DE IMAGEM -->
-  <div class="modal hidden" id="previewModal">
-    <div class="modal-backdrop" id="previewBackdrop"></div>
-    <div class="modal-content modal-image">
-      <button class="modal-close" id="closePreviewModal" type="button">×</button>
-      <img id="previewModalImage" src="" alt="Pré-visualização ampliada" />
-      <div class="modal-caption" id="previewModalCaption"></div>
     </div>
   </div>
 
-  <!-- MODAL DE PROGRESSO -->
-  <div class="modal hidden" id="progressModal">
-    <div class="modal-backdrop"></div>
-    <div class="modal-content modal-progress">
-      <div class="progress-icon" id="progressIcon">⏳</div>
-      <h3 id="progressTitle">Convertendo...</h3>
-      <p id="progressSubtitle">Preparando arquivos...</p>
+  <!-- MODAL PROGRESSO -->
+  <div id="progressModal">
+    <div class="progress-box">
+      <h2 id="progressTitle">Convertendo...</h2>
 
-      <div class="big-progress-wrap">
-        <div class="big-progress-bar" id="bigProgressBar"></div>
+      <div class="progress-track">
+        <div id="progressBar"></div>
       </div>
 
-      <div class="progress-percentage" id="progressPercentage">0%</div>
-      <div class="progress-file" id="progressFile">Aguardando...</div>
-      <div class="progress-counter" id="progressCounter">0 de 0</div>
+      <p id="progressText">Iniciando...</p>
 
       <div class="progress-actions">
-        <button class="success-btn hidden" id="downloadResultBtn" type="button">Baixar resultado</button>
-        <button class="secondary-btn hidden" id="closeProgressBtn" type="button">Fechar</button>
+        <button class="btn btn-green" id="downloadBtn">Baixar</button>
+        <button class="btn btn-red" id="closeProgressBtn">Fechar</button>
       </div>
     </div>
   </div>
 
-  <!-- JSZip -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- MODAL PREVIEW -->
+  <div id="previewModal">
+    <div class="preview-top">
+      <button class="btn btn-red" id="closePreviewBtn">Fechar imagem</button>
+    </div>
+    <img id="previewImg" src="" alt="Pré-visualização">
+  </div>
 
-  <!-- HEIC -->
+  <!-- BIBLIOTECAS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/heic2any/0.0.4/heic2any.min.js"></script>
-
-  <!-- TIFF -->
   <script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.min.js"></script>
-
-  <!-- FFmpeg -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
   <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
 
+  <!-- SEU SCRIPT -->
   <script src="script.js"></script>
 </body>
 </html>
